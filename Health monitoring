@@ -1,0 +1,370 @@
+# IoT Based Health Monitoring System Using Emergency Alert Mechanism
+
+## 📌 Project Overview
+
+The **IoT Based Health Monitoring System Using Emergency Alert Mechanism** is a smart healthcare solution designed to continuously monitor a patient’s vital health parameters in real time using IoT technology. The system collects health data through sensors and sends alerts during emergency situations to caregivers, doctors, or family members.
+
+This project helps in remote patient monitoring, improving healthcare accessibility and reducing response time during medical emergencies.
+
+---
+
+## 🚀 Features
+
+* Real-time health monitoring
+* Emergency alert notification system
+* Continuous monitoring of vital signs
+* IoT-based wireless data transmission
+* User-friendly interface
+* Remote patient tracking
+* Low-cost and efficient healthcare solution
+
+---
+
+## 🛠️ Technologies Used
+
+* **Arduino / ESP8266 / ESP32**
+* **IoT Platform**
+* **Embedded C / Arduino IDE**
+* **Wi-Fi Module**
+* **Sensors**
+
+  * Heart Rate Sensor
+  * Temperature Sensor
+  * Pulse Sensor
+* **Cloud Integration** (optional)
+* **GSM Module / Buzzer / Alert System**
+
+---
+
+## 📂 Project Structure
+
+```bash
+├── code/
+│   ├── main.ino
+│   ├── sensors.h
+│   └── wifi_config.h
+│
+├── documentation/
+│   └── project_report.pdf
+│
+├── images/
+│   └── system_design.png
+│
+└── README.md
+```
+
+---
+
+## ⚙️ Working Principle
+
+1. Sensors collect patient health data such as:
+
+   * Body temperature
+   * Heart rate
+   * Pulse level
+
+2. The microcontroller processes the collected data.
+
+3. Data is transmitted over the internet using IoT modules.
+
+4. If any parameter crosses the predefined threshold:
+
+   * Emergency alerts are generated
+   * Notifications are sent to registered contacts or healthcare providers
+
+5. Data can also be monitored remotely through a dashboard or mobile application.
+
+---
+
+## 🔧 Hardware Requirements
+
+* Arduino Uno / ESP8266 / ESP32
+* Heart Rate Sensor
+* Temperature Sensor (LM35 / DHT11)
+* Wi-Fi Module
+* GSM Module (optional)
+* Jumper Wires
+* Breadboard
+* Power Supply
+
+---
+
+## 💻 Software Requirements
+
+* Arduino IDE
+* Embedded C
+* IoT Dashboard / Blynk / ThingSpeak
+* Serial Monitor
+
+---
+
+## 📊 Applications
+
+* Remote patient monitoring
+* Elderly care systems
+* Hospital monitoring systems
+* Emergency healthcare services
+* Home healthcare automation
+
+---
+
+## 📈 Future Enhancements
+
+* Mobile application integration
+* AI-based health prediction
+* Cloud database storage
+* GPS-based emergency location tracking
+* Integration with wearable devices
+
+---
+
+## 📷 System Architecture
+
+*Add your project architecture image here.*
+
+```bash
+[ Sensors ] → [ Microcontroller ] → [ IoT Cloud ] → [ User Dashboard ]
+                                   ↓
+                          [ Emergency Alert System ]
+```
+
+---
+
+## ▶️ How to Run the Project
+
+1. Install Arduino IDE.
+2. Connect all sensors to the microcontroller.
+3. Upload the code to Arduino/ESP module.
+4. Configure Wi-Fi credentials.
+5. Open Serial Monitor or IoT dashboard.
+6. Monitor health data in real time.
+
+---
+
+Appendices and code
+
+PART A — ESP32 CODE (Health Monitoring + ThingSpeak + LCD)#include <WiFi.h> #include <WiFi.h>
+#include <HTTPClient.h> #include <Wire.h>
+#include <LiquidCrystal_I2C.h> #include <TinyGPS++.h>
+//	LCD
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+//	UART
+TinyGPSPlus gps; HardwareSerial GPS(2); HardwareSerial SharedUART(1);
+
+//	WiFi
+const char* ssid = "OPPO K10";
+const char* password = "1234567890";
+//	Pins
+#define SOS_PIN 4
+#define LED_STATUS 2
+#define LED_SOS 15
+
+#define GPS_RX 16
+#define GPS_TX 17
+#define UART1_RX 32
+#define UART1_TX 33
+//	Data
+int heartRate = 0; int spo2 = 0;
+float nanoTemp = 0;
+//	Timing
+unsigned long lastUpdate = 0; unsigned long uploadInterval = 60000;
+
+//	Nano Data
+void readNanoData() {
+if (SharedUART.available()) {
+String data = SharedUART.readStringUntil('\n'); Serial.print("Received: ");
+Serial.println(data);
+int hrIndex = data.indexOf("HR:"); int spIndex = data.indexOf("SPO2:"); int tIndex = data.indexOf("Temp:");
+ 
+if (hrIndex != -1 && spIndex != -1 && tIndex != -1) {
+heartRate = data.substring(hrIndex + 3, data.indexOf(",", hrIndex)).toInt(); spo2 = data.substring(spIndex + 5, data.indexOf(",", spIndex)).toInt(); nanoTemp = data.substring(tIndex + 5).toFloat();
+nanoTemp = nanoTemp - 6; digitalWrite(LED_STATUS, HIGH); delay(80); digitalWrite(LED_STATUS, LOW);
+Serial.print("Parsed -> HR: "); Serial.print(heartRate); Serial.print(" | SPO2: "); Serial.print(spo2); Serial.print(" | Temp: "); Serial.println(nanoTemp);
+}
+}
+}
+//	LCD
+void showNormal(float temp, unsigned long timeLeft) {
+lcd.setCursor(0, 0); lcd.print("T:"); lcd.print(temp); lcd.print("C ");
+
+lcd.print("U:"); lcd.print(timeLeft); lcd.print("s ");
+lcd.setCursor(0, 1); lcd.print("HR:"); lcd.print(heartRate);
+
+lcd.print(" S:"); lcd.print(spo2);
+lcd.print(" ");
+}
+//	WiFi Animation void showWiFiConnecting() { int progress = 0;
+
+while (WiFi.status() != WL_CONNECTED) { lcd.setCursor(0, 0);
+lcd.print("Connecting WiFi");
+lcd.setCursor(0, 1);
+int bars = map(progress, 0, 100, 0, 16);
+for (int i = 0; i < bars; i++) lcd.write(255); for (int i = bars; i < 16; i++) lcd.print(" ");
+ 
+progress = (progress + 10) % 100;
+
+Serial.print("."); delay(300);
+}
+}
+//	Upload Animation void showUploading() {
+char spinner[] = {'|', '/', '-', '\\'};
+for (int i = 0; i < 20; i++) { lcd.setCursor(0, 0); lcd.print("Uploading Data ");
+
+lcd.setCursor(0, 1); lcd.print("Please wait "); lcd.print(spinner[i % 4]);
+
+delay(150);
+}
+}
+//	SMS Animation void showSendingSMS() { lcd.clear();
+lcd.setCursor(0, 0); lcd.print("Sending SMS");
+
+for (int i = 0; i <= 16; i++) { lcd.setCursor(0, 1);
+
+for (int j = 0; j < i; j++) lcd.write(255); for (int j = i; j < 16; j++) lcd.print(" ");
+
+delay(120);
+}
+}
+
+//	ThingSpeak
+void sendToThingSpeak(float temp, float lat, float lng) { if (WiFi.status() == WL_CONNECTED) {
+
+Serial.println("Uploading to ThingSpeak..."); showUploading();
+
+HTTPClient http;
+String url = "http://api.thingspeak.com/update?api_key=8NVMCBIWAOAEAQ5Z"; url += "&field1=" + String(temp);
+//url += "&field2=" + String(lat);
+//url += "&field3=" + String(lng);
+url += "&field2=" + String(heartRate);
+ 
+url += "&field3=" + String(spo2);
+http.begin(url);
+int httpCode = http.GET();
+Serial.print("HTTP Response: "); Serial.println(httpCode);
+http.end();
+lcd.clear();
+}
+}
+
+//	SMS
+void sendSMS(float temp, float lat, float lng) {
+
+Serial.println("SOS Triggered! Sending SMS..."); showSendingSMS();
+SharedUART.println("AT"); delay(1000);
+
+SharedUART.println("AT+CMGF=1"); delay(1000);
+SharedUART.println("AT+CMGS=\"+919939333586\"");
+delay(2000);
+SharedUART.print("SOS ALERT!\n");
+
+SharedUART.print("HR:"); SharedUART.print(heartRate);
+
+SharedUART.print(" SPO2:"); SharedUART.print(spo2);
+
+SharedUART.print("\nTemp:"); SharedUART.print(temp); SharedUART.print("C");
+
+SharedUART.print("\nLoc:"); SharedUART.print(lat, 6); SharedUART.print(","); SharedUART.println(lng, 6);
+SharedUART.print("http://maps.google.com/?q="); SharedUART.print(lat, 6);
+SharedUART.print(","); SharedUART.println(lng, 6);
+
+SharedUART.write(26);
+Serial.println("SMS Sent (Latest Data)"); delay(5000);
+ 
+lcd.clear();
+}
+
+//	Setup
+void setup() { Serial.begin(115200);
+pinMode(SOS_PIN, INPUT_PULLUP); pinMode(LED_STATUS, OUTPUT); pinMode(LED_SOS, OUTPUT);
+
+lcd.init(); lcd.backlight();
+GPS.begin(9600, SERIAL_8N1, GPS_RX, GPS_TX); SharedUART.begin(9600, SERIAL_8N1, UART1_RX, UART1_TX);
+
+lcd.print("Connecting WiFi"); Serial.println("Connecting WiFi...");
+
+WiFi.begin(ssid, password); showWiFiConnecting();
+
+Serial.println("\nWiFi Connected!"); Serial.println(WiFi.localIP());
+
+lcd.clear();
+lcd.print("WiFi Connected"); delay(1000);
+}
+//	Loop
+void loop() {
+while (GPS.available()) { gps.encode(GPS.read());
+}
+float lat = gps.location.isValid() ? gps.location.lat() : 0; float lng = gps.location.isValid() ? gps.location.lng() : 0;
+readNanoData();
+
+float temp = nanoTemp;
+//   Calculate time left
+unsigned long elapsed = millis() - lastUpdate;
+unsigned long timeLeft = (elapsed < uploadInterval) ? (uploadInterval - elapsed) / 1000 : 0;
+Serial.print("Temp: "); Serial.print(temp); Serial.print(" | HR: "); Serial.print(heartRate); Serial.print(" | SPO2: ");
+ 
+Serial.println(spo2); showNormal(temp, timeLeft);
+if (millis() - lastUpdate > uploadInterval) { sendToThingSpeak(temp, lat, lng); lastUpdate = millis();
+}
+
+if (digitalRead(SOS_PIN) == LOW) { Serial.println("SOS Button Pressed!"); digitalWrite(LED_SOS, HIGH);
+sendSMS(temp, lat, lng); delay(5000);
+} else {
+digitalWrite(LED_SOS, LOW);
+}
+
+delay(1000);
+}
+
+
+
+
+PART B — ARDUINO NANO CODE (SOS + GPS + GSM SMS Alert)
+#include <Wire.h>
+#include "MAX30100_PulseOximeter.h" #define REPORTING_PERIOD_MS 1000
+PulseOximeter pox;
+uint32_t tsLastReport = 0; float spo2 = 0;
+float heartRate = 0; float temp = 0;
+
+//	Beat Callback void onBeatDetected() { Serial.println("Beat!");
+digitalWrite(A1,!digitalRead(A1));
+}
+
+//	Setup
+void setup() {
+ 
+Serial.begin(9600); Wire.begin(); // IMPORTANT
+
+Serial.println("Initializing Pulse Oximeter..."); pinMode(A0,INPUT); pinMode(A1,OUTPUT);
+
+if (!pox.begin()) { Serial.println("FAILED"); while (1); // Stop here
+} else { Serial.println("SUCCESS");
+}
+
+pox.setIRLedCurrent(MAX30100_LED_CURR_7_6MA); pox.setOnBeatDetectedCallback(onBeatDetected);
+}
+//	Loop
+void loop() {
+
+// Must be called continuously pox.update();
+
+// Report every 1 sec
+if (millis() - tsLastReport > REPORTING_PERIOD_MS) {
+
+heartRate = pox.getHeartRate(); spo2 = pox.getSpO2();
+temp = analogRead(A0) * 0.048875;
+
+// Validate readings
+if (heartRate > 30 && heartRate < 220) { Serial.print("HR:"); Serial.print(heartRate);
+} else { Serial.print("HR:0");
+}
+
+Serial.print(",SPO2:");
+
+if (spo2 > 70 && spo2 <= 100) { Serial.print(spo2);
+ 
+} else { Serial.print("0");
+}
+Serial.print(",Temp:"); Serial.println(temp,2); tsLastReport = millis();
+}
+
+
